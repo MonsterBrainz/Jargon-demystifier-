@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jargon Demystifier</title>
+    <!-- Tailwind CSS for a clean, functional aesthetic -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Inter font for clear display of demystified concepts */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f9ff; /* Very light blue background */
+        }
+        /* Custom scrollbar for the output area */
+        #demystified-output::-webkit-scrollbar {
+            width: 8px;
+        }
+        #demystified-output::-webkit-scrollbar-track {
+            background: #e0f2f7;
+            border-radius: 10px;
+        }
+        #demystified-output::-webkit-scrollbar-thumb {
+            background: #a7d9f7; /* Light blue thumb */
+            border-radius: 10px;
+        }
+        #demystified-output::-webkit-scrollbar-thumb:hover {
+            background: #7ac1ed; /* Darker blue on hover */
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-4xl w-full border border-blue-200">
+        <h1 class="text-4xl font-extrabold text-blue-800 mb-6 text-center">
+            Jargon Demystifier
+        </h1>
+        <p class="text-gray-600 mb-8 text-center">
+            Feed this mechanism any jargon, technical term, or complex phrase. It will engage its internal
+            "translation chamber" to provide an understandable, plain-language readout.
+        </p>
+
+        <div class="mb-6">
+            <label for="jargonInput" class="block text-lg font-medium text-gray-700 mb-2">
+                Jargon / Complex Phrase (Raw Input):
+            </label>
+            <textarea id="jargonInput" rows="4"
+                      class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-base"
+                      placeholder="e.g., 'Epistemological solipsism' or 'Quantum entanglement'"></textarea>
+        </div>
+
+        <div class="flex justify-center mb-8">
+            <button id="demystifyButton"
+                    class="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 ease-in-out
+                           transform hover:scale-105 active:scale-95">
+                Engage Demystification Gears
+            </button>
+        </div>
+
+        <div class="bg-blue-50 p-6 rounded-xl border border-blue-200">
+            <h2 class="text-2xl font-bold text-blue-800 mb-4 text-center">Understandable Readout:</h2>
+            <div id="loadingIndicator" class="text-center text-blue-500 font-medium hidden">
+                <div class="animate-spin inline-block w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                <span class="ml-2">Demystifying...</span>
+            </div>
+            <div id="demystified-output" class="bg-white p-4 rounded-lg border border-blue-200 min-h-[100px] overflow-y-auto text-gray-800 text-base leading-relaxed">
+                <!-- The plain-language explanation will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Ensure the DOM is fully loaded before attaching mechanisms
+        window.onload = function() {
+            const jargonInput = document.getElementById('jargonInput');
+            const demystifyButton = document.getElementById('demystifyButton');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const demystifiedOutput = document.getElementById('demystified-output');
+
+            /**
+             * Clears the output display.
+             */
+            function clearOutput() {
+                demystifiedOutput.innerHTML = '';
+            }
+
+            /**
+             * Displays a message in the output area.
+             * @param {string} message The message to display.
+             * @param {string} className Optional CSS class for styling.
+             */
+            function appendOutput(message, className = '') {
+                const p = document.createElement('p');
+                p.textContent = message;
+                if (className) p.classList.add(...className.split(' '));
+                demystifiedOutput.appendChild(p);
+                demystifiedOutput.scrollTop = demystifiedOutput.scrollHeight; // Auto-scroll
+            }
+
+            // Event listener for the 'Engage Demystification Gears' button
+            demystifyButton.addEventListener('click', async () => {
+                clearOutput();
+                const inputText = jargonInput.value.trim();
+
+                if (!inputText) {
+                    appendOutput("Please provide some jargon or a complex phrase to demystify.", 'text-orange-500');
+                    return;
+                }
+
+                loadingIndicator.classList.remove('hidden'); // Show loading spinner
+                demystifyButton.disabled = true; // Disable button during processing
+
+                try {
+                    // This is the core "translation chamber" - an LLM call to myself,
+                    // calibrated to explain in plain language.
+                    let chatHistory = [];
+                    chatHistory.push({ role: "user", parts: [{ text: `Explain the following jargon or complex phrase in simple, understandable terms for a general audience. Avoid using the original jargon in your explanation if possible. Do not add any introductory or concluding remarks, just the plain-language explanation:\n\n"${inputText}"` }] });
+                    const payload = { contents: chatHistory };
+                    const apiKey = ""; // Canvas will provide this key at runtime
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const demystifiedText = result.candidates[0].content.parts[0].text;
+                        appendOutput(demystifiedText, 'font-bold text-blue-700 text-lg');
+                    } else {
+                        appendOutput("Failed to demystify. Unexpected output from translation chamber.", 'text-red-500');
+                        console.error("LLM response structure unexpected:", result);
+                    }
+                } catch (error) {
+                    appendOutput(`Demystification mechanism failed: ${error.message}. Check network connection or API access.`, 'text-red-500');
+                    console.error("Error during LLM API call:", error);
+                } finally {
+                    loadingIndicator.classList.add('hidden'); // Hide loading spinner
+                    demystifyButton.disabled = false; // Re-enable button
+                }
+            });
+        };
+    </script>
+</body>
+</html>
